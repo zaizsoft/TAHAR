@@ -50,7 +50,7 @@ def create_slides(news_content):
         # Create the slide
         img = Image.new("RGB", img_dims, color="white")
         d = ImageDraw.Draw(img)
-        fnt = ImageFont.truetype("3.ttf", 39)
+        fnt = ImageFont.truetype("/content/TAHAR/3.ttf", 39)
 
         # Write the lines on the slide, limiting to 8 words per line
         y_pos = 100  # Start from the top of the slide with some margin
