@@ -50,7 +50,7 @@ def create_slides(news_content):
         # Create the slide
         img = Image.new("RGB", img_dims, color="white")
         d = ImageDraw.Draw(img)
-        fnt = ImageFont.truetype("/content/TAHAR/3.ttf", 33)
+        fnt = ImageFont.truetype("/content/TAHAR/3.ttf", 30)
 
         # Write the lines on the slide, limiting to 8 words per line
         y_pos = 100  # Start from the top of the slide with some margin
@@ -81,7 +81,7 @@ def split_text_into_slides(news_content):
     for sentence in sentences:
         current_slide += sentence
         line_count += 1
-        if line_count >= 9 or sentence[-1] in ['.', '!', '?']:  # Create new slide after 3 lines or at end of sentence
+        if line_count >= 1 or sentence[-1] in ['.', '!', '?']:  # Create new slide after 3 lines or at end of sentence
             slides_text.append(current_slide)
             current_slide = ""
             line_count = 0
