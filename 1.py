@@ -1,4 +1,3 @@
-!pip install feedparser requests beautifulsoup4 gtts moviepy pillow pydub
 import requests
 from bs4 import BeautifulSoup
 import feedparser
@@ -51,7 +50,7 @@ def create_slides(news_content):
         # Create the slide
         img = Image.new("RGB", img_dims, color="white")
         d = ImageDraw.Draw(img)
-        fnt = ImageFont.truetype("arial.ttf", 33)
+        fnt = ImageFont.truetype("3.ttf", 39)
 
         # Write the lines on the slide, limiting to 8 words per line
         y_pos = 100  # Start from the top of the slide with some margin
@@ -59,8 +58,8 @@ def create_slides(news_content):
         for line in lines:
             words = line.split()
             wrapped_lines = []
-            for i in range(0, len(words), 10):
-                wrapped_lines.append(" ".join(words[i:i + 10]))
+            for i in range(0, len(words), 11):
+                wrapped_lines.append(" ".join(words[i:i + 11]))
 
             for wrapped_line in wrapped_lines:
                 txt_w, txt_h = get_text_dims(wrapped_line, fnt)
@@ -82,7 +81,7 @@ def split_text_into_slides(news_content):
     for sentence in sentences:
         current_slide += sentence
         line_count += 1
-        if line_count >= 5 or sentence[-1] in ['.', '!', '?']:  # Create new slide after 5 lines or at end of sentence
+        if line_count >= 3 or sentence[-1] in ['.', '!', '?']:  # Create new slide after 3 lines or at end of sentence
             slides_text.append(current_slide)
             current_slide = ""
             line_count = 0
