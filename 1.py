@@ -1,108 +1,132 @@
 import feedparser
-import re
+import requests
 from gtts import gTTS
 from moviepy.editor import *
 from PIL import Image, ImageDraw, ImageFont
+from io import BytesIO
 import os
-from datetime import datetime
 
+# إعدادات
+PEXELS_API_KEY = "PCwqJJH8epOMqmKdeGzBPIgzk1npSkI39arGmpnEdshOewaUeRyCuyXY"
+VIDEO_SIZE = (1280, 720)
+FONT_PATH = "/content/TAHAR/3.ttf"  # استبدل بمسار الخط
+FONT_SIZE = 55
+TEXT_COLOR = "white"
+DEFAULT_IMAGE = "default_image.jpg"  # صورة افتراضية
+MAX_CHARS_PER_LINE = 40
+MAX_LINES_PER_SLIDE = 8
+
+# جلب الأخبار من RSS
 def fetch_news(rss_url):
-    """Fetches news content from an RSS feed."""
     feed = feedparser.parse(rss_url)
-    news_content = ""
-    for entry in feed.entries:
-        news_content += entry.title + ". " + entry.description
-    return news_content
+    news = []
+    for entry in feed.entries[:5]:  # الحد الأقصى 5 أخبار
+        news.append({
+            "title": entry.title,
+            "description": entry.description,
+            "image_url": fetch_image_from_pexels(entry.title)
+        })
+    return news
 
-def split_into_slides(text):
-    """Splits the text into slides based on sentences and line breaks,
-    ensuring each line has 7 words or less."""
-    sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', text)
-    slides = []
-    current_slide = ""
-    for sentence in sentences:
-        words = sentence.split()
-        # Split sentence into lines with max 7 words:
-        lines = [' '.join(words[i:i + 7]) for i in range(0, len(words), 7)] 
-        current_slide += '\n'.join(lines) + '\n' # Add lines to slide with line breaks
-        
-        # Check if the slide is too long (more than 8 lines):
-        if current_slide.count('\n') >= 8:  
-            slides.append(current_slide.strip())
-            current_slide = ""
-            
-    slides.append(current_slide.strip())  # Add the last slide
-    slides = [slide for slide in slides if slide]  
-    return slides
+# البحث عن صور من Pexels API
+def fetch_image_from_pexels(query):
+    url = "https://api.pexels.com/v1/search"
+    headers = {"Authorization": PEXELS_API_KEY}
+    params = {"query": query, "per_page": 1}
+    try:
+        response = requests.get(url, headers=headers, params=params)
+        data = response.json()
+        if data["photos"]:
+            return data["photos"][0]["src"]["large"]
+    except Exception as e:
+        print(f"Error fetching image: {e}")
+    return None
 
-def add_intro_and_outro(slides):
-    """Adds an introduction and conclusion slide."""
-    # مقدمة الفيديو مع التاريخ الحالي
-    today = datetime.now().strftime("%Y-%m-%d")
-    intro_slide = f"Welcome to Global Insight News.\nToday's top stories:\n{today}"
-    slides.insert(0, intro_slide)
-    
-    # النص الختامي
-    outro_slide = "don't forget to subscribe to the channel"
-    slides.append(outro_slide)
-    return slides
-
-def create_audio(slides):
-    """Converts each slide into an audio file and saves it in 'audio' folder."""
+# إنشاء ملفات الصوت
+def create_audio(news):
     if not os.path.exists("audio"):
-        os.makedirs("audio") 
-    for i, slide_text in enumerate(slides):
-        tts = gTTS(text=slide_text, lang='en' if i != len(slides) - 1 else 'en')  # اللغة الإنجليزية للمقدمة والنصوص، والعربية للنهاية
-        tts.save(f"audio/slide_{i}.mp3") 
+        os.makedirs("audio")
+    audio_files = []
+    for i, item in enumerate(news):
+        text = f"{item['title']}. {item['description']}"
+        tts = gTTS(text=text, lang='en')
+        audio_path = f"audio/slide_{i}.mp3"
+        tts.save(audio_path)
+        audio_files.append(audio_path)
+    return audio_files
 
-def create_slides_images(slides):
-    """Creates images for the slides with the news text and saves them in 'images' folder."""
+# إنشاء صور الشرائح
+def create_slide_images(news):
     if not os.path.exists("images"):
         os.makedirs("images")
-    for i, slide_text in enumerate(slides):
-        # إنشاء صورة فارغة مع خلفية بيضاء
-        img = Image.new('RGB', (1280, 720), color='white')
-        d = ImageDraw.Draw(img)
-        
-        # استخدام الخط المخصص
-        font_path = "/content/TAHAR/3.ttf"  # تحديد مسار الخط
-        font_size = 38
-        try:
-            font = ImageFont.truetype(font_path, font_size)
-        except Exception as e:
-            print(f"Error loading font: {e}")
-            return
-        
-        # حساب أبعاد النص باستخدام دالة multiline_textbbox
-        text_bbox = d.multiline_textbbox((0, 0), slide_text, font=font)
-        text_width, text_height = text_bbox[2] - text_bbox[0], text_bbox[3] - text_bbox[1]
-        
-        # حساب إحداثيات توسيط النص
-        position = ((1280 - text_width) // 2, (720 - text_height) // 2)
-        
-        # رسم النص في الصورة مع تحديد المحاذاة والتعبئة
-        d.multiline_text(position, slide_text, font=font, fill="black", align="center")
-        
-        # حفظ الصورة
-        img.save(f"images/slide_{i}.png")  
+    slide_images = []
 
-def create_video(slides):
-    """Creates a video from the images and audio."""
-    image_clips = []
-    for i in range(len(slides)):
-        audio_clip = AudioFileClip(f"audio/slide_{i}.mp3") 
-        image_clip = ImageClip(f"images/slide_{i}.png").set_duration(audio_clip.duration)
+    for i, item in enumerate(news):
+        # تحميل الصورة الخلفية
+        if item["image_url"]:
+            try:
+                response = requests.get(item["image_url"])
+                img = Image.open(BytesIO(response.content)).convert("RGB")
+                img = img.resize(VIDEO_SIZE)
+            except Exception:
+                img = Image.open(DEFAULT_IMAGE).resize(VIDEO_SIZE)
+        else:
+            img = Image.open(DEFAULT_IMAGE).resize(VIDEO_SIZE)
+
+        # إضافة طبقة داكنة لتقليل الإضاءة
+        overlay = Image.new("RGB", VIDEO_SIZE, color=(0, 0, 0))
+        blended = Image.blend(img, overlay, alpha=0.8)
+
+        draw = ImageDraw.Draw(blended)
+        try:
+            font = ImageFont.truetype(FONT_PATH, FONT_SIZE)
+        except Exception as e:
+            raise FileNotFoundError(f"خطأ في تحميل الخط: {e}")
+
+        # تقسيم النص إلى أسطر
+        text = f"{item['title']}\n\n{item['description']}"
+        lines = []
+        words = text.split()
+        while words:
+            line = ""
+            while words and len(line) + len(words[0]) + 1 <= MAX_CHARS_PER_LINE:
+                line += words.pop(0) + " "
+            lines.append(line.strip())
+
+        # تقليل الأسطر إذا تجاوزت الحد المسموح
+        lines = lines[:MAX_LINES_PER_SLIDE]
+
+        # حساب موضع النص لتوسيطه
+        total_text_height = len(lines) * FONT_SIZE
+        y = (VIDEO_SIZE[1] - total_text_height) // 2
+
+        for line in lines:
+            text_width = draw.textlength(line, font=font)
+            x = (VIDEO_SIZE[0] - text_width) // 2
+            draw.text((x, y), line, fill=TEXT_COLOR, font=font)
+            y += FONT_SIZE
+
+        img_path = f"images/slide_{i}.png"
+        blended.save(img_path)
+        slide_images.append(img_path)
+
+    return slide_images
+
+# إنشاء الفيديو
+def create_video(images, audio_files):
+    clips = []
+    for i, img_path in enumerate(images):
+        audio_clip = AudioFileClip(audio_files[i])
+        image_clip = ImageClip(img_path).set_duration(audio_clip.duration)
         image_clip = image_clip.set_audio(audio_clip)
-        image_clips.append(image_clip)
-    video = concatenate_videoclips(image_clips, method="compose")
+        clips.append(image_clip)
+    video = concatenate_videoclips(clips, method="compose")
     video.write_videofile("news_video.mp4", fps=1)
 
-# Main execution
+# تنفيذ البرنامج
 rss_url = "http://feeds.bbci.co.uk/news/world/rss.xml"
-news_content = fetch_news(rss_url)
-slides = split_into_slides(news_content)
-slides = add_intro_and_outro(slides)  # إضافة المقدمة والنهاية
-create_audio(slides)
-create_slides_images(slides)
-create_video(slides)
+news = fetch_news(rss_url)
+audio_files = create_audio(news)
+images = create_slide_images(news)
+create_video(images, audio_files)
 print("Video created successfully.")
