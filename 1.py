@@ -12,7 +12,7 @@ VIDEO_SIZE = (1280, 720)
 FONT_PATH = "/content/TAHAR/3.ttf"  # استبدل بمسار الخط
 FONT_SIZE = 55
 TEXT_COLOR = "white"
-DEFAULT_IMAGE = "default_image.jpg"  # صورة افتراضية
+DEFAULT_IMAGE = "/content/TAHAR/default_image.jpg"  # صورة افتراضية
 MAX_CHARS_PER_LINE = 40
 MAX_LINES_PER_SLIDE = 8
 
