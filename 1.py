@@ -23,7 +23,7 @@ MAX_LINES_PER_SLIDE = 8
 def fetch_news(rss_url):
     feed = feedparser.parse(rss_url)
     news = []
-    for entry in feed.entries[:1]:  # الحد الأقصى 5 أخبار
+    for entry in feed.entries[:5]:  # الحد الأقصى 5 أخبار
         news.append({
             "title": entry.title,
             "description": entry.description,
