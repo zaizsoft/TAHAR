@@ -9,9 +9,10 @@ import os
 
 # إعدادات
 PEXELS_API_KEY = "PCwqJJH8epOMqmKdeGzBPIgzk1npSkI39arGmpnEdshOewaUeRyCuyXY"
-VIDEO_SIZE = (1280, 720)
+YOUTUBE_VIDEO_SIZE = (1280, 720)  # فيديو يوتيوب
+TIKTOK_VIDEO_SIZE = (1080, 1920)  # فيديو تيكتوك
 FONT_PATH = "/content/TAHAR/3.ttf"  # استبدل بمسار الخط
-FONT_SIZE = 61
+FONT_SIZE = 55
 TEXT_COLOR = "white"
 DEFAULT_IMAGE = "/content/TAHAR/default_image.jpg"  # صورة افتراضية
 LOGO_PATH = "/content/TAHAR/logo.png"  # شعار القناة
@@ -22,7 +23,7 @@ MAX_LINES_PER_SLIDE = 8
 def fetch_news(rss_url):
     feed = feedparser.parse(rss_url)
     news = []
-    for entry in feed.entries[:5]:  # الحد الأقصى 5 أخبار
+    for entry in feed.entries[:1]:  # الحد الأقصى 5 أخبار
         news.append({
             "title": entry.title,
             "description": entry.description,
@@ -58,7 +59,7 @@ def create_audio(news):
     return audio_files
 
 # إنشاء صور الشرائح
-def create_slide_images(news):
+def create_slide_images(news, video_size):
     if not os.path.exists("images"):
         os.makedirs("images")
     slide_images = []
@@ -69,14 +70,14 @@ def create_slide_images(news):
             try:
                 response = requests.get(item["image_url"])
                 img = Image.open(BytesIO(response.content)).convert("RGB")
-                img = img.resize(VIDEO_SIZE)
+                img = img.resize(video_size)
             except Exception:
-                img = Image.open(DEFAULT_IMAGE).resize(VIDEO_SIZE)
+                img = Image.open(DEFAULT_IMAGE).resize(video_size)
         else:
-            img = Image.open(DEFAULT_IMAGE).resize(VIDEO_SIZE)
+            img = Image.open(DEFAULT_IMAGE).resize(video_size)
 
         # إضافة طبقة داكنة لتقليل الإضاءة
-        overlay = Image.new("RGB", VIDEO_SIZE, color=(0, 0, 0))
+        overlay = Image.new("RGB", video_size, color=(0, 0, 0))
         blended = Image.blend(img, overlay, alpha=0.6)
 
         draw = ImageDraw.Draw(blended)
@@ -100,11 +101,11 @@ def create_slide_images(news):
 
         # حساب موضع النص لتوسيطه
         total_text_height = len(lines) * FONT_SIZE
-        y = (VIDEO_SIZE[1] - total_text_height) // 2
+        y = (video_size[1] - total_text_height) // 2
 
         for line in lines:
             text_width = draw.textlength(line, font=font)
-            x = (VIDEO_SIZE[0] - text_width) // 2
+            x = (video_size[0] - text_width) // 2
             draw.text((x, y), line, fill=TEXT_COLOR, font=font)
             y += FONT_SIZE
 
@@ -120,27 +121,27 @@ def create_slide_images(news):
     return slide_images
 
 # إنشاء مقدمة الفيديو
-def create_intro_slide():
+def create_intro_slide(video_size):
     text = f"Welcome to Global Insight News\nToday's top stories for {datetime.now().strftime('%B %d, %Y')}."
     audio_path = "audio/intro.mp3"
     img_path = "images/intro.png"
-    create_text_slide(text, audio_path, img_path)
+    create_text_slide(text, audio_path, img_path, video_size)
     return img_path, audio_path
 
 # إنشاء خاتمة الفيديو
-def create_outro_slide():
+def create_outro_slide(video_size):
     text = "Thank you for watching! Subscribe for more updates."
     audio_path = "audio/outro.mp3"
     img_path = "images/outro.png"
-    create_text_slide(text, audio_path, img_path)
+    create_text_slide(text, audio_path, img_path, video_size)
     return img_path, audio_path
 
 # إنشاء صورة مع نصوص
-def create_text_slide(text, audio_path, img_path):
+def create_text_slide(text, audio_path, img_path, video_size):
     tts = gTTS(text=text, lang='en')
     tts.save(audio_path)
 
-    img = Image.new("RGB", VIDEO_SIZE, color=(0, 0, 0))
+    img = Image.new("RGB", video_size, color=(0, 0, 0))
     draw = ImageDraw.Draw(img)
     try:
         font = ImageFont.truetype(FONT_PATH, FONT_SIZE)
@@ -157,11 +158,11 @@ def create_text_slide(text, audio_path, img_path):
         lines.append(line.strip())
 
     total_text_height = len(lines) * FONT_SIZE
-    y = (VIDEO_SIZE[1] - total_text_height) // 2
+    y = (video_size[1] - total_text_height) // 2
 
     for line in lines:
         text_width = draw.textlength(line, font=font)
-        x = (VIDEO_SIZE[0] - text_width) // 2
+        x = (video_size[0] - text_width) // 2
         draw.text((x, y), line, fill=TEXT_COLOR, font=font)
         y += FONT_SIZE
 
@@ -173,9 +174,9 @@ def create_text_slide(text, audio_path, img_path):
     img.save(img_path)
 
 # إنشاء الفيديو النهائي
-def create_video_with_intro_outro(images, audio_files, first_news_title):
-    intro_img, intro_audio = create_intro_slide()
-    outro_img, outro_audio = create_outro_slide()
+def create_video_with_intro_outro(images, audio_files, first_news_title, video_size, video_filename):
+    intro_img, intro_audio = create_intro_slide(video_size)
+    outro_img, outro_audio = create_outro_slide(video_size)
 
     clips = []
 
@@ -196,21 +197,27 @@ def create_video_with_intro_outro(images, audio_files, first_news_title):
     outro_clip = outro_clip.set_audio(AudioFileClip(outro_audio))
     clips.append(outro_clip)
 
-    # تجميع الفيديو بدون موسيقى خلفية
+    # تجميع الفيديو
     video = concatenate_videoclips(clips, method="compose")
 
     sanitized_title = "".join(c for c in first_news_title if c.isalnum() or c in " _-").strip()
-    video_filename = f"{sanitized_title}.mp4"
 
-    video.write_videofile(video_filename, fps=1, codec="libx264", audio_codec="aac")
+    video.write_videofile(video_filename, fps=24, codec="libx264", audio_codec="aac")
     print(f"Video saved as: {video_filename}")
 
 # تنفيذ البرنامج
 rss_url = "http://feeds.bbci.co.uk/news/world/rss.xml"
 news = fetch_news(rss_url)
 audio_files = create_audio(news)
-images = create_slide_images(news)
+
+# فيديو اليوتيوب
+images_youtube = create_slide_images(news, YOUTUBE_VIDEO_SIZE)
 if news:
-    create_video_with_intro_outro(images, audio_files, news[0]["title"])
+    create_video_with_intro_outro(images_youtube, audio_files, news[0]["title"], YOUTUBE_VIDEO_SIZE, f"{news[0]['title']}_youtube.mp4")
+
+# فيديو التكتوك
+images_tiktok = create_slide_images(news, TIKTOK_VIDEO_SIZE)
+if news:
+    create_video_with_intro_outro(images_tiktok, audio_files, news[0]["title"], TIKTOK_VIDEO_SIZE, f"{news[0]['title']}_tiktok.mp4")
 else:
     print("No news found to create video.")
