@@ -221,3 +221,119 @@ if news:
     create_video_with_intro_outro(images_tiktok, audio_files, news[0]["title"], TIKTOK_VIDEO_SIZE, f"{news[0]['title']}_tiktok.mp4")
 else:
     print("No news found to create video.")
+
+# صورة لليوتوب
+
+import feedparser
+import requests
+from PIL import Image, ImageDraw, ImageFont
+from io import BytesIO
+import os
+
+# إعدادات
+PEXELS_API_KEY = "PCwqJJH8epOMqmKdeGzBPIgzk1npSkI39arGmpnEdshOewaUeRyCuyXY"  # مفتاح API من Pexels
+THUMBNAIL_SIZE = (1280, 720)  # حجم الصورة المصغرة
+FONT_PATH_TITLE = "/content/TAHAR/3.ttf"  # مسار الخط للعناوين
+FONT_PATH_SUBTITLE = "/content/TAHAR/2.ttf"  # مسار الخط للنصوص الفرعية
+DEFAULT_IMAGE = "/content/TAHAR/default_image.jpg"  # صورة افتراضية
+LOGO_PATH = "/content/TAHAR/logo.png"  # شعار القناة
+TITLE_FONT_SIZE = 100
+SUBTITLE_FONT_SIZE = 50
+TEXT_COLOR = "white"
+BACKGROUND_GRADIENT = [(0, 0, 0), (50, 50, 50)]  # تدرج لوني للخلفية
+BORDER_COLOR = (255, 0, 0)  # لون الحدود
+
+# البحث عن صورة باستخدام Pexels API
+def fetch_image_from_pexels(query):
+    url = "https://api.pexels.com/v1/search"
+    headers = {"Authorization": PEXELS_API_KEY}
+    params = {"query": query, "per_page": 1, "orientation": "landscape"}
+    try:
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        if data["photos"]:
+            return data["photos"][0]["src"]["large"]
+    except Exception as e:
+        print(f"Error fetching image from Pexels: {e}")
+    return None
+
+# جلب الأخبار من RSS
+def fetch_bbc_headlines(rss_url="http://feeds.bbci.co.uk/news/world/rss.xml"):
+    feed = feedparser.parse(rss_url)
+    headlines = [entry.title for entry in feed.entries[:5]]
+    return "\n".join(f"- {headline}" for headline in headlines)
+
+# دالة لإنشاء صورة مصغرة احترافية
+def create_advanced_thumbnail(title, subtitle, output_path="advanced_thumbnail.png"):
+    # البحث عن صورة باستخدام العنوان
+    image_url = fetch_image_from_pexels(title)
+
+    # تحميل الصورة الخلفية أو استخدام صورة افتراضية
+    if image_url:
+        try:
+            response = requests.get(image_url)
+            img = Image.open(BytesIO(response.content)).convert("RGB")
+            img = img.resize(THUMBNAIL_SIZE)
+        except Exception:
+            img = Image.open(DEFAULT_IMAGE).resize(THUMBNAIL_SIZE)
+    else:
+        img = Image.open(DEFAULT_IMAGE).resize(THUMBNAIL_SIZE)
+
+    # إضافة تدرج لوني
+    gradient = Image.new("RGB", THUMBNAIL_SIZE, color=BACKGROUND_GRADIENT[0])
+    draw_gradient = ImageDraw.Draw(gradient)
+    for y in range(THUMBNAIL_SIZE[1]):
+        r = int(BACKGROUND_GRADIENT[0][0] + (BACKGROUND_GRADIENT[1][0] - BACKGROUND_GRADIENT[0][0]) * (y / THUMBNAIL_SIZE[1]))
+        g = int(BACKGROUND_GRADIENT[0][1] + (BACKGROUND_GRADIENT[1][1] - BACKGROUND_GRADIENT[0][1]) * (y / THUMBNAIL_SIZE[1]))
+        b = int(BACKGROUND_GRADIENT[0][2] + (BACKGROUND_GRADIENT[1][2] - BACKGROUND_GRADIENT[0][2]) * (y / THUMBNAIL_SIZE[1]))
+        draw_gradient.line([(0, y), (THUMBNAIL_SIZE[0], y)], fill=(r, g, b))
+
+    blended = Image.blend(img, gradient, alpha=0.7)
+
+    # إضافة النصوص
+    draw = ImageDraw.Draw(blended)
+    try:
+        title_font = ImageFont.truetype(FONT_PATH_TITLE, TITLE_FONT_SIZE)
+        subtitle_font = ImageFont.truetype(FONT_PATH_SUBTITLE, SUBTITLE_FONT_SIZE)
+    except Exception as e:
+        raise FileNotFoundError(f"خطأ في تحميل الخط: {e}")
+
+    # إضافة شعار القناة
+    logo_height = 0
+    if os.path.exists(LOGO_PATH):
+        logo = Image.open(LOGO_PATH).resize((150, 150))
+        blended.paste(logo, (20, 20), logo)
+        logo_height = logo.size[1] + 30  # ارتفاع الشعار + مسافة إضافية
+
+    # رسم العنوان الرئيسي
+    title_bbox = title_font.getbbox(title)
+    title_width, title_height = title_bbox[2] - title_bbox[0], title_bbox[3] - title_bbox[1]
+    title_x = (THUMBNAIL_SIZE[0] - title_width) // 2
+    title_y = logo_height + 20  # الموضع الرأسي (أسفل الشعار)
+    draw.text((title_x, title_y), title, fill=TEXT_COLOR, font=title_font)
+
+    # رسم النص الفرعي
+    lines = subtitle.split("\n")
+    subtitle_y = title_y + title_height + 30  # بدء النص الفرعي بعد العنوان الرئيسي بمسافة إضافية
+    for line in lines:
+        subtitle_bbox = subtitle_font.getbbox(line)
+        subtitle_width, subtitle_height = subtitle_bbox[2] - subtitle_bbox[0], subtitle_bbox[3] - subtitle_bbox[1]
+        subtitle_x = (THUMBNAIL_SIZE[0] - subtitle_width) // 2
+        draw.text((subtitle_x, subtitle_y), line, fill=TEXT_COLOR, font=subtitle_font)
+        subtitle_y += subtitle_height + 15  # زيادة المسافة بين الأسطر
+
+    # إضافة الحدود
+    draw.rectangle([0, 0, THUMBNAIL_SIZE[0] - 1, THUMBNAIL_SIZE[1] - 1], outline=BORDER_COLOR, width=10)
+
+    # حفظ الصورة المصغرة
+    blended.save(output_path)
+    print(f"Advanced thumbnail saved as: {output_path}")
+
+# استخدام الدالة
+headlines = fetch_bbc_headlines()
+create_advanced_thumbnail(
+    title="Breaking News: Top 5 Stories",
+    subtitle=headlines,
+    output_path="bbc_youtube_thumbnail.png"
+)
