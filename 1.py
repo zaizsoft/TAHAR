@@ -234,7 +234,7 @@ import os
 PEXELS_API_KEY = "PCwqJJH8epOMqmKdeGzBPIgzk1npSkI39arGmpnEdshOewaUeRyCuyXY"  # مفتاح API من Pexels
 THUMBNAIL_SIZE = (1280, 720)  # حجم الصورة المصغرة
 FONT_PATH_TITLE = "/content/TAHAR/3.ttf"  # مسار الخط للعناوين
-FONT_PATH_SUBTITLE = "/content/TAHAR/2.ttf"  # مسار الخط للنصوص الفرعية
+FONT_PATH_SUBTITLE = "/content/TAHAR/3.ttf"  # مسار الخط للنصوص الفرعية
 DEFAULT_IMAGE = "/content/TAHAR/default_image.jpg"  # صورة افتراضية
 LOGO_PATH = "/content/TAHAR/logo.png"  # شعار القناة
 TITLE_FONT_SIZE = 100
